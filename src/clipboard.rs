@@ -20,9 +20,9 @@ enum State {
 
 impl Clipboard {
     /// Creates a new [`Clipboard`] for the given window.
-    pub fn new(window: raw_window_handle_06::RawDisplayHandle) -> Self {
+    pub fn new(window: raw_window_handle::RawDisplayHandle) -> Self {
         let clipboard_res = unsafe {
-            let window = raw_window_handle_06::DisplayHandle::borrow_raw(window);
+            let window = raw_window_handle::DisplayHandle::borrow_raw(window);
             window_clipboard::Clipboard::connect(&window)
         };
 

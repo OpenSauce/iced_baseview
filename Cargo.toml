@@ -17,7 +17,7 @@ categories = ["gui"]
 [features]
 default = ["wgpu"]
 # Enables a debug view in native platforms (press F12)
-debug = ["iced_runtime/debug"]
+debug = []
 # Enable the wgu renderer
 wgpu = ["iced_renderer/wgpu", "iced_widget/wgpu"]
 image = ["iced_graphics/image", "iced_widget/image", "iced_renderer/image"]
@@ -32,13 +32,14 @@ trace = []
 baseview = { git = "https://github.com/RustAudio/baseview.git", rev = "579130ecb4f9f315ae52190af42f0ea46aeaa4a2" }
 cfg-if = "1"
 window_clipboard = "0.4.1"
-iced_runtime = "0.13"
-iced_renderer = "0.13"
-iced_graphics = "0.13"
-iced_widget = "0.13"
+iced_runtime = "0.14"
+iced_renderer = "0.14"
+iced_graphics = "0.14"
+iced_widget = "0.14"
 keyboard-types = { version = "0.6", default-features = false }
 log = "0.4"
-raw-window-handle = "0.5"
-raw-window-handle-06 = { package = "raw-window-handle", version = "0.6" }
+pollster = "0.4"
+raw-window-handle-05 = { package = "raw-window-handle", version = "0.5" }
+raw-window-handle = "0.6"
 thiserror = "1.0"
 sysinfo = { version = "0.30", optional = true }

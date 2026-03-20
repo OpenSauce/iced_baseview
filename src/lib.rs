@@ -41,6 +41,7 @@ pub mod task {
 pub mod application;
 pub mod clipboard;
 pub mod conversion;
+pub mod debug;
 pub mod settings;
 pub mod window;
 
@@ -105,7 +106,7 @@ pub mod keyboard {
     //! Listen and react to keyboard events.
     pub use crate::core::keyboard::key;
     pub use crate::core::keyboard::{Event, Key, Location, Modifiers};
-    pub use iced_runtime::futures::keyboard::{on_key_press, on_key_release};
+    pub use iced_runtime::futures::keyboard::listen;
 }
 
 pub mod mouse {
@@ -164,7 +165,7 @@ pub fn open_parented<A, W>(
 where
     A: Application + Send + 'static,
     A::Flags: Send,
-    W: raw_window_handle::HasRawWindowHandle,
+    W: raw_window_handle_05::HasRawWindowHandle,
 {
     window::IcedWindow::<A>::open_parented::<W, Compositor>(parent, flags, settings)
 }

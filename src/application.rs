@@ -9,23 +9,22 @@ use iced_runtime::Task;
 use iced_widget::core::Color;
 use iced_widget::core::Element;
 use iced_widget::Theme;
-use raw_window_handle::HasRawDisplayHandle;
+use raw_window_handle_05::HasRawDisplayHandle;
 pub use state::State;
 
 use crate::core::mouse;
 use crate::core::renderer;
 use crate::core::widget::operation;
 use crate::core::Size;
-use crate::futures::futures;
 use crate::futures::{Executor, Runtime, Subscription};
 use crate::graphics::compositor::{self, Compositor};
 use crate::runtime::clipboard;
 use crate::runtime::user_interface::{self, UserInterface};
-use crate::runtime::Debug;
+use crate::debug::Debug;
 use crate::window::{IcedWindow, RuntimeEvent, WindowQueue, WindowSubs};
 use crate::{Clipboard, Error, Proxy, Renderer, Settings};
 
-use futures::channel::mpsc;
+use crate::futures::futures::channel::mpsc;
 
 use std::cell::RefCell;
 use std::mem::ManuallyDrop;
@@ -56,7 +55,7 @@ where
     type Message: std::fmt::Debug + Send + 'static;
 
     /// The theme used to draw the [`Application`].
-    type Theme: Default + DefaultStyle;
+    type Theme: DefaultStyle;
 
     /// The [`Executor`] that will run commands and subscriptions.
     ///
@@ -191,7 +190,7 @@ where
     C: Compositor<Renderer = Renderer> + 'static,
     A::Theme: DefaultStyle,
 {
-    use futures::task;
+    use crate::futures::futures::task;
 
     #[cfg(feature = "trace")]
     let _guard = Profiler::init();
@@ -214,7 +213,7 @@ where
             (settings.window.size.height * scale) as u32,
         );
 
-        iced_graphics::Viewport::with_physical_size(physical_size, scale)
+        iced_graphics::Viewport::with_physical_size(physical_size, scale as f32)
     };
 
     let (runtime_tx, runtime_rx) = mpsc::unbounded::<Action<A::Message>>();
@@ -246,7 +245,7 @@ where
 
     let graphics_settings = settings.graphics_settings;
     let mut compositor =
-        crate::futures::futures::executor::block_on(C::new(graphics_settings, window06.clone()))?;
+        pollster::block_on(C::new(graphics_settings, window06.clone(), window06.clone(), iced_graphics::Shell::headless()))?;
     let surface = compositor.create_surface(
         window06,
         viewport.physical_width(),
@@ -324,7 +323,7 @@ async fn run_instance<A, C>(
     A: Application + 'static,
     A::Theme: DefaultStyle,
 {
-    use futures::stream::StreamExt;
+    use crate::futures::futures::stream::StreamExt;
 
     let mut viewport_version = state.viewport_version();
 
@@ -393,6 +392,21 @@ async fn run_instance<A, C>(
                         &mut messages,
                     );
 
+                    match &interface_state {
+                        user_interface::State::Updated { mouse_interaction: new_mouse_interaction, .. } => {
+                            if *new_mouse_interaction != mouse_interaction {
+                                #[cfg(not(target_os = "macos"))]
+                                if let Err(_) = window_queue.set_mouse_cursor(
+                                    crate::conversion::convert_mouse_interaction(*new_mouse_interaction),
+                                ) {
+                                    debug.log_message(&"could not send set_mouse_cursor command".to_string());
+                                }
+                                mouse_interaction = *new_mouse_interaction;
+                            }
+                        }
+                        _ => {}
+                    }
+
                     needs_update |= matches!(interface_state, user_interface::State::Outdated,);
 
                     debug.event_processing_finished();
@@ -443,7 +457,7 @@ async fn run_instance<A, C>(
                 }
 
                 debug.draw_started();
-                let new_mouse_interaction = user_interface.draw(
+                user_interface.draw(
                     &mut renderer,
                     state.theme(),
                     &iced_runtime::core::renderer::Style {
@@ -452,18 +466,6 @@ async fn run_instance<A, C>(
                     state.cursor(),
                 );
                 debug.draw_finished();
-
-                if new_mouse_interaction != mouse_interaction {
-                    // TODO: Set mouse cursor for MacOS once baseview supports it.
-                    #[cfg(not(target_os = "macos"))]
-                    if let Err(_) = window_queue.set_mouse_cursor(
-                        crate::conversion::convert_mouse_interaction(new_mouse_interaction),
-                    ) {
-                        debug.log_message(&"could not send set_mouse_cursor command".to_string());
-                    }
-
-                    mouse_interaction = new_mouse_interaction;
-                }
 
                 redraw_requested = true;
             }
@@ -509,7 +511,7 @@ async fn run_instance<A, C>(
                     debug.layout_finished();
 
                     debug.draw_started();
-                    let new_mouse_interaction = user_interface.draw(
+                    user_interface.draw(
                         &mut renderer,
                         state.theme(),
                         &renderer::Style {
@@ -517,21 +519,6 @@ async fn run_instance<A, C>(
                         },
                         state.cursor(),
                     );
-
-                    if new_mouse_interaction != mouse_interaction {
-                        // TODO: Set mouse cursor for MacOS once baseview supports it.
-                        #[cfg(not(target_os = "macos"))]
-                        if let Err(_) = window_queue.set_mouse_cursor(
-                            crate::conversion::convert_mouse_interaction(new_mouse_interaction),
-                        ) {
-                            debug.log_message(
-                                &"could not send set_mouse_cursor command".to_string(),
-                            );
-                        }
-
-                        mouse_interaction = new_mouse_interaction;
-                    }
-
                     debug.draw_finished();
 
                     compositor.configure_surface(
@@ -548,7 +535,7 @@ async fn run_instance<A, C>(
                     &mut surface,
                     state.viewport(),
                     state.background_color(),
-                    &debug.overlay(),
+                    || {},
                 ) {
                     Ok(()) => {
                         debug.render_finished();
@@ -749,7 +736,7 @@ pub fn run_action<A, C>(
             _ => {}
         },
         Action::System(action) => match action {
-            crate::runtime::system::Action::QueryInformation(_channel) => {
+            crate::runtime::system::Action::GetInformation(_channel) => {
                 #[cfg(feature = "system")]
                 {
                     let graphics_info = compositor.fetch_information();
@@ -761,6 +748,7 @@ pub fn run_action<A, C>(
                     });
                 }
             }
+            _ => {}
         },
         Action::Widget(operation) => {
             let mut current_operation = Some(operation);
@@ -787,6 +775,9 @@ pub fn run_action<A, C>(
             if let Err(_) = window_queue.close_window() {
                 debug.log_message(&"could not send exit command".to_string());
             }
+        }
+        Action::Image(_) | Action::Reload => {
+            // Not supported in baseview
         }
     }
 }

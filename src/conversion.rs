@@ -7,8 +7,8 @@ use iced_runtime::core::Point;
 use iced_runtime::keyboard::Event as IcedKeyEvent;
 use iced_runtime::keyboard::Modifiers as IcedModifiers;
 use keyboard_types::Modifiers as BaseviewModifiers;
-use raw_window_handle::HasRawDisplayHandle;
-use raw_window_handle::HasRawWindowHandle;
+use raw_window_handle_05::HasRawDisplayHandle;
+use raw_window_handle_05::HasRawWindowHandle;
 
 pub fn baseview_to_iced_events(
     event: BaseEvent,
@@ -83,19 +83,19 @@ pub fn baseview_to_iced_events(
             let key = baseview_to_iced_key(event.key);
             let location = baseview_key_location_to_iced(event.location);
 
-            if is_down {
-                let text = if let iced_runtime::core::keyboard::Key::Character(s) = &key {
-                    Some(s.clone())
-                } else {
-                    None
-                };
-
-                let physical_key = if let Some(code) = baseview_to_iced_keycode(event.code) {
+            let physical_key = if let Some(code) = baseview_to_iced_keycode(event.code) {
                     iced_runtime::core::keyboard::key::Physical::Code(code)
                 } else {
                     iced_runtime::core::keyboard::key::Physical::Unidentified(
                         iced_runtime::core::keyboard::key::NativeCode::Unidentified,
                     )
+                };
+
+            if is_down {
+                let text = if let iced_runtime::core::keyboard::Key::Character(s) = &key {
+                    Some(s.clone())
+                } else {
+                    None
                 };
 
                 iced_events.push(IcedEvent::Keyboard(IcedKeyEvent::KeyPressed {
@@ -105,10 +105,13 @@ pub fn baseview_to_iced_events(
                     modifiers: *iced_modifiers,
                     location,
                     text,
+                    repeat: false,
                 }));
             } else {
                 iced_events.push(IcedEvent::Keyboard(IcedKeyEvent::KeyReleased {
-                    key,
+                    key: key.clone(),
+                    modified_key: key,
+                    physical_key,
                     location,
                     modifiers: *iced_modifiers,
                 }));
@@ -682,7 +685,8 @@ pub fn convert_mouse_interaction(
         ICursor::Grab => BCursor::HandGrabbing,
         ICursor::Text => BCursor::Text,
         ICursor::Crosshair => BCursor::Crosshair,
-        ICursor::Working => BCursor::Working,
+        ICursor::Progress => BCursor::Working,
+        ICursor::Wait => BCursor::Working,
         ICursor::Grabbing => BCursor::HandGrabbing,
         ICursor::ResizingHorizontally => BCursor::ColResize,
         ICursor::ResizingVertically => BCursor::RowResize,
@@ -695,39 +699,46 @@ pub fn convert_mouse_interaction(
         ICursor::Move => BCursor::Move,
         ICursor::Copy => BCursor::Copy,
         ICursor::Help => BCursor::Help,
+        ICursor::Hidden => BCursor::Hidden,
+        ICursor::ContextMenu => BCursor::Default,
+        ICursor::Alias => BCursor::Alias,
+        ICursor::NoDrop => BCursor::NotAllowed,
+        ICursor::ResizingColumn => BCursor::ColResize,
+        ICursor::ResizingRow => BCursor::RowResize,
+        ICursor::AllScroll => BCursor::AllScroll,
     }
 }
 
 pub fn convert_raw_display_handle(
-    handle05: raw_window_handle::RawDisplayHandle,
-) -> raw_window_handle_06::RawDisplayHandle {
+    handle05: raw_window_handle_05::RawDisplayHandle,
+) -> raw_window_handle::RawDisplayHandle {
     use std::ptr::NonNull;
 
     match handle05 {
-        raw_window_handle::RawDisplayHandle::AppKit(_) => {
-            raw_window_handle_06::RawDisplayHandle::AppKit(
-                raw_window_handle_06::AppKitDisplayHandle::new(),
+        raw_window_handle_05::RawDisplayHandle::AppKit(_) => {
+            raw_window_handle::RawDisplayHandle::AppKit(
+                raw_window_handle::AppKitDisplayHandle::new(),
             )
         }
-        raw_window_handle::RawDisplayHandle::Xlib(handle) => {
-            raw_window_handle_06::RawDisplayHandle::Xlib(
-                raw_window_handle_06::XlibDisplayHandle::new(
+        raw_window_handle_05::RawDisplayHandle::Xlib(handle) => {
+            raw_window_handle::RawDisplayHandle::Xlib(
+                raw_window_handle::XlibDisplayHandle::new(
                     NonNull::new(handle.display),
                     handle.screen,
                 ),
             )
         }
-        raw_window_handle::RawDisplayHandle::Xcb(handle) => {
-            raw_window_handle_06::RawDisplayHandle::Xcb(
-                raw_window_handle_06::XcbDisplayHandle::new(
+        raw_window_handle_05::RawDisplayHandle::Xcb(handle) => {
+            raw_window_handle::RawDisplayHandle::Xcb(
+                raw_window_handle::XcbDisplayHandle::new(
                     NonNull::new(handle.connection),
                     handle.screen,
                 ),
             )
         }
-        raw_window_handle::RawDisplayHandle::Windows(_) => {
-            raw_window_handle_06::RawDisplayHandle::Windows(
-                raw_window_handle_06::WindowsDisplayHandle::new(),
+        raw_window_handle_05::RawDisplayHandle::Windows(_) => {
+            raw_window_handle::RawDisplayHandle::Windows(
+                raw_window_handle::WindowsDisplayHandle::new(),
             )
         }
         _ => todo!(),
@@ -735,32 +746,32 @@ pub fn convert_raw_display_handle(
 }
 
 pub fn convert_raw_window_handle(
-    handle05: raw_window_handle::RawWindowHandle,
-) -> raw_window_handle_06::RawWindowHandle {
+    handle05: raw_window_handle_05::RawWindowHandle,
+) -> raw_window_handle::RawWindowHandle {
     use std::num::{NonZeroIsize, NonZeroU32};
     use std::ptr::NonNull;
 
     match handle05 {
-        raw_window_handle::RawWindowHandle::AppKit(handle) => {
-            raw_window_handle_06::RawWindowHandle::AppKit(
-                raw_window_handle_06::AppKitWindowHandle::new(
+        raw_window_handle_05::RawWindowHandle::AppKit(handle) => {
+            raw_window_handle::RawWindowHandle::AppKit(
+                raw_window_handle::AppKitWindowHandle::new(
                     NonNull::new(handle.ns_view).unwrap(),
                 ),
             )
         }
-        raw_window_handle::RawWindowHandle::Xlib(handle) => {
-            raw_window_handle_06::RawWindowHandle::Xlib(
-                raw_window_handle_06::XlibWindowHandle::new(handle.window),
+        raw_window_handle_05::RawWindowHandle::Xlib(handle) => {
+            raw_window_handle::RawWindowHandle::Xlib(
+                raw_window_handle::XlibWindowHandle::new(handle.window),
             )
         }
-        raw_window_handle::RawWindowHandle::Xcb(handle) => {
-            raw_window_handle_06::RawWindowHandle::Xcb(raw_window_handle_06::XcbWindowHandle::new(
+        raw_window_handle_05::RawWindowHandle::Xcb(handle) => {
+            raw_window_handle::RawWindowHandle::Xcb(raw_window_handle::XcbWindowHandle::new(
                 NonZeroU32::new(handle.window).unwrap(),
             ))
         }
-        raw_window_handle::RawWindowHandle::Win32(handle) => {
+        raw_window_handle_05::RawWindowHandle::Win32(handle) => {
             // will this work? i have no idea!
-            let mut raw_handle = raw_window_handle_06::Win32WindowHandle::new(
+            let mut raw_handle = raw_window_handle::Win32WindowHandle::new(
                 NonZeroIsize::new(handle.hwnd as isize).unwrap(),
             );
 
@@ -769,7 +780,7 @@ pub fn convert_raw_window_handle(
                 .is_null()
                 .then(|| NonZeroIsize::new(handle.hinstance as isize).unwrap());
 
-            raw_window_handle_06::RawWindowHandle::Win32(raw_handle)
+            raw_window_handle::RawWindowHandle::Win32(raw_handle)
         }
         _ => todo!(),
     }
@@ -777,8 +788,8 @@ pub fn convert_raw_window_handle(
 
 #[derive(Clone)]
 pub struct WindowWrapper {
-    window: raw_window_handle_06::RawWindowHandle,
-    display: raw_window_handle_06::RawDisplayHandle,
+    window: raw_window_handle::RawWindowHandle,
+    display: raw_window_handle::RawDisplayHandle,
 }
 
 pub fn convert_window(window: &baseview::Window<'_>) -> WindowWrapper {
@@ -788,21 +799,21 @@ pub fn convert_window(window: &baseview::Window<'_>) -> WindowWrapper {
     }
 }
 
-impl raw_window_handle_06::HasWindowHandle for WindowWrapper {
+impl raw_window_handle::HasWindowHandle for WindowWrapper {
     fn window_handle(
         &self,
-    ) -> Result<raw_window_handle_06::WindowHandle<'static>, raw_window_handle_06::HandleError>
+    ) -> Result<raw_window_handle::WindowHandle<'static>, raw_window_handle::HandleError>
     {
-        Ok(unsafe { raw_window_handle_06::WindowHandle::borrow_raw(self.window) })
+        Ok(unsafe { raw_window_handle::WindowHandle::borrow_raw(self.window) })
     }
 }
 
-impl raw_window_handle_06::HasDisplayHandle for WindowWrapper {
+impl raw_window_handle::HasDisplayHandle for WindowWrapper {
     fn display_handle(
         &self,
-    ) -> Result<raw_window_handle_06::DisplayHandle<'static>, raw_window_handle_06::HandleError>
+    ) -> Result<raw_window_handle::DisplayHandle<'static>, raw_window_handle::HandleError>
     {
-        Ok(unsafe { raw_window_handle_06::DisplayHandle::borrow_raw(self.display) })
+        Ok(unsafe { raw_window_handle::DisplayHandle::borrow_raw(self.display) })
     }
 }
 
